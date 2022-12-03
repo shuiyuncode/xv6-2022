@@ -1,0 +1,81 @@
+1 20221115入坑xv6实验
+2 退出快捷键：Ctrl + a，然后按 x 键。
+3 寄存器信息不显示的问题 我的初步猜测是应为qemu的启动的配置参数原因  2004上面的qemu是4.x的版本 xv6官网要求为5.0+ 
+  2204 默认下载的是6.1版本  可以显示寄存器  我自己用源码变异了 7.1版本  仍然不能显示 寄存器。。。放弃了
+  猜测是因为 gdb --target 参数导致的
+  在debug console 上 执行 -exec info registers 可以显示寄存器的具体值
+4 xv6实验为什么一定要用 qemu spike他不香么？？？
+  https://zhuanlan.zhihu.com/p/137575836
+  https://cloud.tencent.com/developer/article/1819855
+5 实验环境搭建 
+  https://blog.csdn.net/LostUnravel/article/details/120397168
+  运行如下指令来查看本地 GDB 支持的架构, 其中 --target 参数指定了 debug 的架构
+    $ gdb --configuration
+6 riscv 实现自定义指令    
+https://cloud.tencent.com/developer/article/1819855
+如何在 riscv qemu 添加自己的 csr 寄存器
+https://my.oschina.net/u/4239621/blog/5132775
+
+7 清华大学计算机组成原理实验课 计算机组成原理（2021年）
+https://lab.cs.tsinghua.edu.cn/cod-lab-docs/labs/2-emulator/
+
+8 qemu 参数
+-nographic: 不使用图形窗口，使用命令行
+-machine: 指定要emulate的机器，可以通过命令qemu-system-riscv64 -machine help查看可选择的机器选项
+-kernel: 指定内核image
+-append cmdline: 使用cmdline作为内核的命令行
+-device: 指定要模拟的设备，可以通过命令qemu-system-riscv64 -device help查看可选择的设备，通过命令qemu-system-riscv64 -device <具体的设备>,help查看某个设备的命令选项
+-drive, file=<file_name>: 使用’file’作为文件系统
+-netdev user,id=str: 指定user mode的虚拟网卡, 指定ID为str
+-S: 启动时暂停CPU执行(使用’c’启动执行)
+-s: -gdb tcp::1234 的简写
+-bios default: 使用默认的OpenSBI firmware作为bootloader
+
+https://www.nuanyun.cloud/?p=1481
+编译器的类别
+这里首先介绍如下三种概念名词：
+
+The build system: The machine which generates the compiler binaries.
+The host system: The system which runs the compiler binaries.
+The target system: The system which runs the application code compiled by the compiler binari
+根据上述不同平台之间的异同，编译器可以分为如下几种类型：
+
+native compiler: A compiler where target is the same system as host.
+cross compiler: A compiler where target is not the same system as host.
+其中交叉编译工具链（Cross Compiler）是我们在本系列实验中所采用的主要编译工具。交叉编译指的是在一个平台上编译可以在另一个平台运行的程序，例如在x86机器上编译可以在arm平台运行的程序，交叉编译需要交叉编译工具链的支持。
+
+在后续实验中我们令：
+
+build = X86_64 linux
+host =  X86_64 linux
+target = RISC-V64
+
+退出gdb快捷键ctrl+d.
+
+环境配置
+http://lifeislife.cn/2021/08/23/VSCode%E8%B0%83%E8%AF%95%E7%A8%8B%E5%BA%8F/
+
+vscode 不能显示寄存器信息
+散步老哥 给出了一种解决方案 配置xml 或者参考这个
+https://stackoverflow.com/questions/72759791/why-does-gdb-do-not-show-all-risc-v-csrs-when-debugging-bare-metal-program-runni
+
+https://blog.csdn.net/m0_37621078/article/details/113886458
+我想到一个牛B的方法 就是用vscode调试 qemu 源码  看下这个rsp 的返回值是什么 能否魔改下qemu源码
+远程调试相比本地调试，多了一个GdbServer程序，该程序和目标程序（被调试程序）都运行在目标机（比如一个ARM 主板）中。
+上图中的红线表示GDB与GdbServer之间通过串口线或者网络进行通讯，用于传输GDB 
+调试消息的通讯协议可以称为GDB Remote Serial Protocol(GDB RSP)。
+ 
+
+ gdb 启动日志有一个warning
+ For help, type "help".
+Type "apropos word" to search for commands related to "word".
+=cmd-param-changed,param="confirm",value="off"
+The target architecture is set to "riscv:rv64".
+=cmd-param-changed,param="architecture",value="riscv:rv64"
+Warning: Debuggee TargetArchitecture not detected, assuming x86_64.
+=cmd-param-changed,param="pagination",value="off"
+
+gdb 调试 https://zhuanlan.zhihu.com/p/354794701
+
+设置鼠标返回键
+https://daimajiaoliu.com/daima/479d3c429900404

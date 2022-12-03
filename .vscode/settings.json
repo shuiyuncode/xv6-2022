@@ -1,0 +1,19 @@
+{
+
+    "multiCommand.commands": [
+        {
+            "command": "multiCommand.enterExec",
+            "sequence": [
+                "repl.action.acceptInput",
+                {"command": "editor.action.insertSnippet", "args": {"snippet": "-exec "}}
+            ]
+        }
+    ],
+    "files.associations": {
+        "user.h": "c",
+        "stat.h": "c",
+        "types.h": "c",
+        "type_traits": "c",
+        "new": "c"
+    }
+}

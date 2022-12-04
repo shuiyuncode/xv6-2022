@@ -43,17 +43,11 @@ void primes(int fd)
     if (fork() > 0)
     {
         int tmp = 0;
-        read(fd, &tmp, 4);
-        while (tmp)
+        while (read(fd, &tmp, 4) != 0)
         {
             if (tmp % first != 0)
-            {
                 write(p[1], &tmp, 4);
-            }
-            read(fd, &tmp, 4);
         }
-        int end = 0;
-        write(p[1], &end, 4);
 
         close(p[1]);
         close(p[0]);
@@ -86,8 +80,6 @@ int main(int argc, char *argv[])
     pipe(p);
     for (int i = 2; i < 35; i++)
         write(p[1], &i, 4);
-    int end = 0;
-    write(p[1], &end, 4);
     close(p[1]);
     primes(p[0]);
     close(p[0]);

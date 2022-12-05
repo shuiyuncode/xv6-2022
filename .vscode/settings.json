@@ -14,6 +14,7 @@
         "stat.h": "c",
         "types.h": "c",
         "type_traits": "c",
-        "new": "c"
+        "new": "c",
+        "syscall.h": "c"
     }
 }

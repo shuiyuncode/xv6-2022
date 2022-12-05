@@ -5,9 +5,10 @@
             "name": "debug xv6",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/kernel/kernel",
+            // "program": "${workspaceFolder}/kernel/kernel",
+            "program": "${workspaceFolder}/user/_find",
             "args": [],
-            "stopAtEntry": false,
+            "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "miDebuggerServerAddress": "127.0.0.1:26000",
             //看你喜欢可以修改成什么能用的gdb，为了防止奇怪现象我选择了rv

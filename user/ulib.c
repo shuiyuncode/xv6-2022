@@ -105,7 +105,9 @@ atoi(const char *s)
     n = n*10 + *s++ - '0';
   return n;
 }
-
+// https://blog.csdn.net/wanna_wsl/article/details/70305814
+// memmove() 是 memcpy() 的改进版，实现的功能相同，但更安全，具体分析见这篇博客，
+// 大致是说，一个是从头部开始复制，一个是从尾部开始复制。
 void*
 memmove(void *vdst, const void *vsrc, int n)
 {

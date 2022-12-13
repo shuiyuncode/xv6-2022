@@ -23,6 +23,7 @@ struct execcmd {
   char *eargv[MAXARGS];
 };
 
+// 重定向命令 < >
 struct redircmd {
   int type;
   struct cmd *cmd;
@@ -32,6 +33,8 @@ struct redircmd {
   int fd;
 };
 
+// | 管道命令
+// ls | sort | uniq | wc
 struct pipecmd {
   int type;
   struct cmd *left;
@@ -44,6 +47,7 @@ struct listcmd {
   struct cmd *right;
 };
 
+// & 后台执行命令
 struct backcmd {
   int type;
   struct cmd *cmd;
@@ -98,23 +102,23 @@ runcmd(struct cmd *cmd)
     runcmd(lcmd->right);
     break;
 
-  case PIPE:
+  case PIPE: // | 管道命令
     pcmd = (struct pipecmd*)cmd;
     if(pipe(p) < 0)
       panic("pipe");
     if(fork1() == 0){
-      close(1);
-      dup(p[1]);
+      close(1);// 一个新分配的文件描述符永远都是当前进程的最小的未被使用的文件描述符。
+      dup(p[1]);// 重定向标准输入  由dup函数返回的文件描述符是当前可用文件描述符中最小数值
       close(p[0]);
       close(p[1]);
-      runcmd(pcmd->left);
+      runcmd(pcmd->left); // 递归调用自身 处理左侧命令 在EXEC中 会exit(0) 所以子进程不会走下面的fork
     }
     if(fork1() == 0){
       close(0);
-      dup(p[0]);
+      dup(p[0]);// 重定向标准输出
       close(p[0]);
       close(p[1]);
-      runcmd(pcmd->right);
+      runcmd(pcmd->right); // 递归调用自身 处理右侧侧命令
     }
     close(p[0]);
     close(p[1]);
@@ -134,7 +138,7 @@ runcmd(struct cmd *cmd)
 int
 getcmd(char *buf, int nbuf)
 {
-  write(2, "$ ", 2);
+  write(2, "$ ", 2);// 2 标准输出
   memset(buf, 0, nbuf);
   gets(buf, nbuf);
   if(buf[0] == 0) // EOF
@@ -145,7 +149,7 @@ getcmd(char *buf, int nbuf)
 int
 main(void)
 {
-  static char buf[100];
+  static char buf[100]; // 命令行最长100个字符
   int fd;
 
   // Ensure that three file descriptors are open.
@@ -165,9 +169,9 @@ main(void)
         fprintf(2, "cannot cd %s\n", buf+3);
       continue;
     }
-    if(fork1() == 0)
+    if(fork1() == 0)  // child
       runcmd(parsecmd(buf));
-    wait(0);
+    wait(0);// parent wait child
   }
   exit(0);
 }
@@ -271,7 +275,7 @@ gettoken(char **ps, char *es, char **q, char **eq)
 
   s = *ps;
   while(s < es && strchr(whitespace, *s))
-    s++;
+    s++;// 去掉开头的空字符
   if(q)
     *q = s;
   ret = *s;
@@ -311,11 +315,13 @@ gettoken(char **ps, char *es, char **q, char **eq)
 int
 peek(char **ps, char *es, char *toks)
 {
-  char *s;
-
-  s = *ps;
-  while(s < es && strchr(whitespace, *s))
+  char *s;// **ps 为字符串的第一个字符
+  s = *ps;// s = "ls\n" = 0x2030  es = s + strlen(s) = 0x2033 不单单只是字符串末尾字符
+  // strchr --> 判断*s 是否为 whitespace 的其中任意的一个字符
+  while(s < es && strchr(whitespace, *s)) // *s 表示1个字符 char
     s++;
+  // 上面的 while 是去掉命令行中的 whitespace
+  // 参数为什么要用双重指针 是因为这里要修改参数指针
   *ps = s;
   return *s && strchr(toks, *s);
 }
@@ -331,6 +337,7 @@ parsecmd(char *s)
   char *es;
   struct cmd *cmd;
 
+  // 这里的 es 不仅仅只是代表了字符串的末尾字符 后面会用这个es来进行字符串末尾比较 如peek() s < es
   es = s + strlen(s);
   cmd = parseline(&s, es);
   peek(&s, es, "");
@@ -362,7 +369,7 @@ parseline(char **ps, char *es)
 struct cmd*
 parsepipe(char **ps, char *es)
 {
-  struct cmd *cmd;
+  struct cmd *cmd;// C 允许您从函数返回指针
 
   cmd = parseexec(ps, es);
   if(peek(ps, es, "|")){
@@ -397,6 +404,7 @@ parseredirs(struct cmd *cmd, char **ps, char *es)
   return cmd;
 }
 
+// 解析块结构 必须同时包含"("   ")"
 struct cmd*
 parseblock(char **ps, char *es)
 {
@@ -404,7 +412,7 @@ parseblock(char **ps, char *es)
 
   if(!peek(ps, es, "("))
     panic("parseblock");
-  gettoken(ps, es, 0, 0);
+  gettoken(ps, es, 0, 0);// ???
   cmd = parseline(ps, es);
   if(!peek(ps, es, ")"))
     panic("syntax - missing )");
@@ -424,7 +432,7 @@ parseexec(char **ps, char *es)
   if(peek(ps, es, "("))
     return parseblock(ps, es);
 
-  ret = execcmd();
+  ret = execcmd();// 构造exec命令行
   cmd = (struct execcmd*)ret;
 
   argc = 0;

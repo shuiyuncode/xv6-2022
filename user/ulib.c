@@ -55,7 +55,7 @@ memset(void *dst, int c, uint n)
 }
 
 char*
-strchr(const char *s, char c)
+strchr(const char *s, char c) // 字符串中是否包含某个字符
 {
   for(; *s; s++)
     if(*s == c)
@@ -70,7 +70,7 @@ gets(char *buf, int max)
   char c;
 
   for(i=0; i+1 < max; ){
-    cc = read(0, &c, 1);
+    cc = read(0, &c, 1);// 0 标准输入 自动阻塞 一个字符一个字符的进行读入
     if(cc < 1)
       break;
     buf[i++] = c;

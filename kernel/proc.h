@@ -103,5 +103,7 @@ struct proc {
   struct context context;      // swtch() here to run process
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
+
   char name[16];               // Process name (debugging)
+  int tracemask;               // mask for trace must have a default val
 };

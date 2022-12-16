@@ -5,6 +5,7 @@
 
 
 // trace 32 grep hello README
+// ./grade-lab-syscall trace
 int
 main(int argc, char *argv[])
 {

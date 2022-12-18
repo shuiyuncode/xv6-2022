@@ -5,6 +5,12 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "sysinfo.h"
+
+
+uint64 acquire_freemem();
+int acquire_nproc();
+
 
 uint64
 sys_exit(void)
@@ -102,3 +108,25 @@ sys_trace(void)
   p->tracemask = n;  
   return 0;
 }
+
+uint64
+sys_sysinfo(void)
+{
+ 
+  // 参考 int fstat(int fd, struct stat *st) Place info about an open file into *st 
+  // sysfile 中 copyout 函数原型
+
+  uint64 addr;       // user pointer to struct stat
+  argaddr(0, &addr); // 得到调用sysinfo时的参数地址
+
+  struct sysinfo info;
+  info.nproc = acquire_nproc();
+  info.freemem = acquire_freemem();
+
+  struct proc *p = myproc();
+
+  if (copyout(p->pagetable, addr, (char *)&info, sizeof(info)) < 0)
+    return -1;
+  return 0;
+}
+

@@ -11,6 +11,8 @@
 
 void freerange(void *pa_start, void *pa_end);
 
+
+
 extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
 
@@ -80,3 +82,25 @@ kalloc(void)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
 }
+
+
+// collect the amount of free memory 
+// 链表长度 * 4k 即为剩余空间
+uint64 acquire_freemem()
+{
+
+  uint64 freemem = 0;
+  struct run *r;
+
+  acquire(&kmem.lock);
+  r = kmem.freelist;
+  while(r)
+  {
+    r = r->next;
+    freemem++;
+  }
+  release(&kmem.lock);
+  return freemem * PGSIZE;
+
+}
+

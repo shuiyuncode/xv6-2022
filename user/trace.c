@@ -6,6 +6,7 @@
 
 // trace 32 grep hello README
 // ./grade-lab-syscall trace
+// still has bug
 int
 main(int argc, char *argv[])
 {

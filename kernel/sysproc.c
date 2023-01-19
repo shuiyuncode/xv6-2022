@@ -35,6 +35,8 @@ sys_wait(void)
   return wait(p);
 }
 
+// 用于增加或减少物理内存，当参数为正数时增加，负数时减少
+// sbrk实际通过growproc进行，growproc调用uvmalloc 或uvmdealloc完成工作。
 uint64
 sys_sbrk(void)
 {

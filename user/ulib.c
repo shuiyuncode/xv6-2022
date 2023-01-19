@@ -151,6 +151,7 @@ memcpy(void *dst, const void *src, uint n)
   return memmove(dst, src, n);
 }
 
+// LAB_PGTBL 这个宏定义在makefile中
 #ifdef LAB_PGTBL
 int
 ugetpid(void)

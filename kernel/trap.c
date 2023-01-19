@@ -26,6 +26,7 @@ trapinit(void)
 void
 trapinithart(void)
 {
+  // 初始化 stvec 寄存器
   w_stvec((uint64)kernelvec);
 }
 

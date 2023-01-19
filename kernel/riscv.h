@@ -197,6 +197,8 @@ w_pmpaddr0(uint64 x)
 }
 
 // use riscv's sv39 page table scheme.
+//                  63    59  58    44  43   0
+//  satp寄存器=====>[  MODE   |  ASID   |  PPN ]
 #define SATP_SV39 (8L << 60)
 
 #define MAKE_SATP(pagetable) (SATP_SV39 | (((uint64)pagetable) >> 12))
@@ -320,6 +322,23 @@ r_ra()
 }
 
 // flush the TLB.
+/**
+ * 
+ * sfence.vma rs1, rs2指令是一条特权指令，用于通知处理器页表的修改。
+ * rs1指示了页表哪个虚址对应的转换被修改了；
+ * rs2给出了被修改页表的进程的地址空间标识符（ASID）。
+ * 如果两者都是x0，便会刷新整个 TLB。
+ * 
+ * sfence.vma 仅影响执行当前指令的 hart 的地址转换硬件。
+ * 当 hart 更改了另一个 hart 正在使用的页表时，前一个 hart 必须用处理器间中断来通知后一个 hart，
+ * 他应该执行 sfence.vma 指令。这个过程通常被称为 TLB 击落。
+ * 
+ * 
+ * 在 XV6 中，两个地方使用了sfence.vma指令，
+ * 一个是上文提到的kvminithart函数，
+ * 另一个就是trampoline.S中，当陷入内核以及返回用户态时会调用。
+ * 
+ */
 static inline void
 sfence_vma()
 {
@@ -360,4 +379,5 @@ typedef uint64 *pagetable_t; // 512 PTEs
 // MAXVA is actually one bit less than the max allowed by
 // Sv39, to avoid having to sign-extend virtual addresses
 // that have the high bit set.
+// 每个进程拥有独立的地址空间，当进程切换时同时会对页表进行切换。XV6 进程地址空间从 0 开始到 MAXVA，即 256GB。
 #define MAXVA (1L << (9 + 9 + 9 + 12 - 1))

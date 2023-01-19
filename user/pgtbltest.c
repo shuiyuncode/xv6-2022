@@ -29,8 +29,6 @@ void
 ugetpid_test()
 {
   int i;
-
-  printf("ugetpid_test starting\n");
   testname = "ugetpid_test";
 
   for (i = 0; i < 64; i++) {

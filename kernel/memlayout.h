@@ -53,10 +53,16 @@
 
 // map the trampoline page to the highest address,
 // in both user and kernel space.
+// 在进程地址空间的最高位置为 trampoline，所有进程的该页面映射到同一个物理页面上。
+// 同样地，在用户栈的下方也设置了一个 guard page 来防止缓冲区溢出。
+// 注意所有的进程 都映射了这一物理页面  TRAMPOLINE 是虚拟地址
 #define TRAMPOLINE (MAXVA - PGSIZE)
+// trampoline page，它使得内核可以将一个物理内存page映射到多个用户地址空间中。
+
 
 // map kernel stacks beneath the trampoline,
-// each surrounded by invalid guard pages.
+// each surrounded by invalid guard pages.  
+// 这个宏要怎么理解呢？？？
 #define KSTACK(p) (TRAMPOLINE - (p)*2*PGSIZE - 3*PGSIZE)
 
 // User memory layout.
@@ -72,7 +78,6 @@
 #define TRAPFRAME (TRAMPOLINE - PGSIZE)
 #ifdef LAB_PGTBL
 #define USYSCALL (TRAPFRAME - PGSIZE)
-
 struct usyscall {
   int pid;  // Process ID
 };

@@ -15,15 +15,19 @@ extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
 
+// 恒等映射
 // Make a direct-map page table for the kernel.
 pagetable_t
 kvmmake(void)
 {
+  // pagetable_t代表一级页表，实际数据类型是一个指针，指向页表的物理地址
   pagetable_t kpgtbl;
 
   kpgtbl = (pagetable_t) kalloc();
   memset(kpgtbl, 0, PGSIZE);
 
+  // 在申请到页表后，通过调用kvmmap函数，将物理地址中的UART0 CLINT等映射到内核页表中，完成了内核页表的初始化。
+  // 低于 0x8000 0000 io设备的恒等映射(kvmmap 的前两个参数一样)
   // uart registers
   kvmmap(kpgtbl, UART0, UART0, PGSIZE, PTE_R | PTE_W);
 
@@ -64,12 +68,17 @@ kvminithart()
   // wait for any previous writes to the page table memory to finish.
   sfence_vma();
 
+  // 使用MAKE_SATP产生SATP的值，将该值写入satp寄存器中
+  // 在MAKE_SATP中使用SATP_SV39设置 MODE 域为 8，即开启 SV39 地址转换
   w_satp(MAKE_SATP(kernel_pagetable));
 
   // flush stale entries from the TLB.
+  // 使用sfence_vma刷新 TLB，完成了虚拟地址转换的开启，之后代码中的地址就全部会通过地址转换机构进行转换
   sfence_vma();
 }
 
+
+// walk函数是最核心的函数，该函数通过页表pagetable将虚拟地址va转换为PTE，如果alloc为1就会分配一个新页面。
 // Return the address of the PTE in page table pagetable
 // that corresponds to virtual address va.  If alloc!=0,
 // create any required page-table pages.
@@ -150,7 +159,7 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   
   a = PGROUNDDOWN(va);
   last = PGROUNDDOWN(va + size - 1);
-  for(;;){
+  for(;;){ // 通过 walk 构建 PTES
     if((pte = walk(pagetable, a, 1)) == 0)
       return -1;
     if(*pte & PTE_V)
@@ -197,7 +206,7 @@ pagetable_t
 uvmcreate()
 {
   pagetable_t pagetable;
-  pagetable = (pagetable_t) kalloc();
+  pagetable = (pagetable_t) kalloc();// 分配一个物理页面
   if(pagetable == 0)
     return 0;
   memset(pagetable, 0, PGSIZE);
@@ -222,6 +231,9 @@ uvmfirst(pagetable_t pagetable, uchar *src, uint sz)
 
 // Allocate PTEs and physical memory to grow process from oldsz to
 // newsz, which need not be page aligned.  Returns new size or 0 on error.
+
+// uvmalloc函数先计算需要申请的页面数，之后在进程地址空间顶部再申请所需的连续的页面。
+// 函数通过kalloc申请物理页面，之后使用mappages函数映射到进程页表中。
 uint64
 uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
 {
@@ -252,6 +264,9 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
 // newsz.  oldsz and newsz need not be page-aligned, nor does newsz
 // need to be less than oldsz.  oldsz can be larger than the actual
 // process size.  Returns the new process size.
+
+// uvmdealloc函数先计算需要减少的页面数，之后通过uvmunmap删除页面。
+// 在uvmunmap函数内部通过walk获取对应 PTE，将PTE_V设置为0，最后通过kfree函数将该物理页面添加到空闲链表中。
 uint64
 uvmdealloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
 {

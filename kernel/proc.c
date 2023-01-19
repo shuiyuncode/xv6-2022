@@ -18,7 +18,7 @@ struct spinlock pid_lock;
 extern void forkret(void);
 static void freeproc(struct proc *p);
 
-extern char trampoline[]; // trampoline.S
+extern char trampoline[]; // trampoline.S--> 物理地址吗？？？
 
 // helps ensure that wakeups of wait()ing
 // parents are not lost. helps obey the
@@ -44,6 +44,11 @@ proc_mapstacks(pagetable_t kpgtbl)
 }
 
 // initialize the proc table.
+// 这里只是初始化了进程结构的状态和对应的内核栈地址空间
+// 真正的进程的出事化实在 main() -- uinit() 中进行的初始化  
+// 当前函数限制了进程的最大数 实际系统会限制吗？
+
+// 在QEMU中，0~0x80000000用于映射设备接口，而0x80000000(KERNBASE) ~ 0x86400000(PHYSTOP)为RAM。
 void
 procinit(void)
 {
@@ -54,7 +59,8 @@ procinit(void)
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->state = UNUSED;
-      p->kstack = KSTACK((int) (p - proc));
+      // 内核地址分布图中 为什么会有 Kstack0 Kstack1???
+      p->kstack = KSTACK((int) (p - proc)); // ???
   }
 }
 
@@ -125,20 +131,32 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
-  // Allocate a trapframe page.
+  // Allocate a trapframe page.  trapframe 保存用户寄存器的
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
     release(&p->lock);
     return 0;
   }
 
-  // An empty user page table.
+  // 先分配页面 然后在 proc_pagetable 中完成映射
+  // allocate a speed up syscall page
+  if ((p->usyscall = (struct usyscall *)kalloc()) == 0) { // kalloc() 分配得到一个物理页面地址
+      freeproc(p);
+      release(&p->lock);
+      return 0;
+  }
+
+  // An empty user page table.  同时处理 syscall 页面
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
     freeproc(p);
     release(&p->lock);
     return 0;
   }
+
+  // usyscall 页面初始化
+  p->usyscall->pid = p->pid;
+
 
   // Set up new context to start executing at forkret,
   // which returns to user space.
@@ -158,6 +176,9 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+#ifdef LAB_PGTBL
+  p->usyscall->pid = 0;        // to spped up user's syscall to avoid
+#endif                         // switch to kernel, likes ugetpid;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
@@ -183,25 +204,41 @@ proc_pagetable(struct proc *p)
   if(pagetable == 0)
     return 0;
 
+  // 物理内存中只有一份 trampoline ---> 是的  mappages 第4个参数为物理地址 是恒定的
+  // 在进程地址空间的最高位置为 trampoline，所有进程的该页面映射到同一个物理页面上
+
   // map the trampoline code (for system call return)
   // at the highest user virtual address.
   // only the supervisor uses it, on the way
   // to/from user space, so not PTE_U.
+
   if(mappages(pagetable, TRAMPOLINE, PGSIZE,
               (uint64)trampoline, PTE_R | PTE_X) < 0){
     uvmfree(pagetable, 0);
     return 0;
   }
 
-  // map the trapframe page just below the trampoline page, for
-  // trampoline.S.
+  // map the trapframe page just below the trampoline page, for trampoline.S.
+  // 如何把 trampoline.S 代码放到 TRAMPOLINE 地址上的？？？
   if(mappages(pagetable, TRAPFRAME, PGSIZE,
               (uint64)(p->trapframe), PTE_R | PTE_W) < 0){
+    // if 失败别忘记了释放 TRAMPOLINE 代码 ， TRAPFRAME 是用来存放寄存器的 无需 uvmunmap           
     uvmunmap(pagetable, TRAMPOLINE, 1, 0);
     uvmfree(pagetable, 0);
     return 0;
   }
 
+  // map usyscall  LAB_PGTBL 已经在makefile中定义了
+#ifdef LAB_PGTBL
+  // 要弄明白 mappages 的每个参数的含义了 就知道该怎么使用这个函数来做映射了
+  // 关键点在于 第4个参数要放什么   
+  if(mappages(pagetable, USYSCALL, PGSIZE, (uint64)(p->usyscall), PTE_R | PTE_U) < 0){ // 踩坑 PTE_U
+    uvmunmap(pagetable, TRAMPOLINE, 1, 0);// 映射失败 释放对应页面
+    uvmunmap(pagetable, USYSCALL, 1, 0);
+    uvmfree(pagetable, 0);
+    return 0;
+  }
+#endif
   return pagetable;
 }
 
@@ -212,6 +249,9 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
+#ifdef LAB_PGTBL
+  uvmunmap(pagetable, USYSCALL, 1, 0); // for ugetpid lab 
+#endif
   uvmfree(pagetable, sz);
 }
 
@@ -261,7 +301,8 @@ growproc(int n)
 {
   uint64 sz;
   struct proc *p = myproc();
-
+  // 进程地址空间是从 0 开始连续向上增长的，因此通过proc.sz获取已分配字节数，
+  // 就可以计算得到当前已分配空间的顶部地址，之后就可以得到对应的页面地址。
   sz = p->sz;
   if(n > 0){
     if((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {

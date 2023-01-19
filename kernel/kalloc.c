@@ -26,6 +26,8 @@ struct {
 void
 kinit()
 {
+  // 初始化kmem结构体
+  // 该函数首先初始化锁，之后使用freerange函数将内核之后的全部空闲 RAM 以 4KB 为一页加入该链表
   initlock(&kmem.lock, "kmem");
   freerange(end, (void*)PHYSTOP);
 }

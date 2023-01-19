@@ -46,11 +46,14 @@ exec(char *path, char **argv)
   if(elf.magic != ELF_MAGIC)
     goto bad;
 
+  // 在proc_pagetable函数中，先使用uvmcreate函数申请一个页面，之后将 trampoline 和 trapframe 映射到高位地址空间中。
   if((pagetable = proc_pagetable(p)) == 0)
     goto bad;
 
   // Load program into memory.
   for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
+    // 多重校验elf 文件 防止elf文件攻击内核--在 Program Header 的vaddr中，程序可以指定被加载到的虚拟地址，而这可能是危险的，
+    // 因此在exec中会检查if(ph.vaddr + ph.memsz < ph.vaddr)，避免发生加法溢出
     if(readi(ip, 0, (uint64)&ph, off, sizeof(ph)) != sizeof(ph))
       goto bad;
     if(ph.type != ELF_PROG_LOAD)
@@ -61,6 +64,8 @@ exec(char *path, char **argv)
       goto bad;
     if(ph.vaddr % PGSIZE != 0)
       goto bad;
+
+    // uvmalloc申请内存空间，再使用loadseg函数将程序加载到对应页面中
     uint64 sz1;
     if((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz, flags2perm(ph.flags))) == 0)
       goto bad;
@@ -126,7 +131,7 @@ exec(char *path, char **argv)
   p->sz = sz;
   p->trapframe->epc = elf.entry;  // initial program counter = main
   p->trapframe->sp = sp; // initial stack pointer
-  proc_freepagetable(oldpagetable, oldsz);
+  proc_freepagetable(oldpagetable, oldsz);// exec函数更新进程结构体，将旧页表释放 ???
 
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 

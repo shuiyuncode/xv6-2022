@@ -54,11 +54,16 @@ pgaccess_test()
   printf("pgaccess_test starting\n");
   testname = "pgaccess_test";
   buf = malloc(32 * PGSIZE);
+  // printf("pgaccess_test buf = %p\n", buf); // 0x5010 user space 地址很小
+  // printf("pgaccess_test buf1 = %p\n", &buf[PGSIZE]); // 0x5010 user space 地址很小
+  // printf("pgaccess_test buf2 = %p\n", &buf[PGSIZE *2]); // 0x5010 user space 地址很小
+
   if (pgaccess(buf, 32, &abits) < 0)
     err("pgaccess failed");
-  buf[PGSIZE * 1] += 1;
-  buf[PGSIZE * 2] += 1;
-  buf[PGSIZE * 30] += 1;
+  buf[PGSIZE * 1] += 1;   // 访问了第1个页面   不是获取值 应该是 buf 的地址值
+  buf[PGSIZE * 2] += 1;   // 访问了第2个页面
+  buf[PGSIZE * 30] += 1;  // 访问了第30个页面
+
   if (pgaccess(buf, 32, &abits) < 0)
     err("pgaccess failed");
   if (abits != ((1 << 1) | (1 << 2) | (1 << 30)))

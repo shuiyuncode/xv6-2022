@@ -133,6 +133,10 @@ exec(char *path, char **argv)
   p->trapframe->sp = sp; // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);// exec函数更新进程结构体，将旧页表释放 ???
 
+  if (p->pid == 1)
+    vmprint(p->pagetable);
+
+  // 这个是exec 系统调用的返回值  不是参数要执行程序的返回值！！！ 参数中要执行的程序需要通过 scheduler 调度器来触发调度开始执行
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 
  bad:

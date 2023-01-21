@@ -98,11 +98,13 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
     panic("walk");
 
   for(int level = 2; level > 0; level--) {
+    // 通过虚拟地址 va 得到各个级别的pte
     pte_t *pte = &pagetable[PX(level, va)];
+    // 需要注意的地方是 for 循环中 pagetable 是更新的
     if(*pte & PTE_V) {
-      pagetable = (pagetable_t)PTE2PA(*pte);
+      pagetable = (pagetable_t)PTE2PA(*pte);// 如果已存在了 pagetable 更新为下一级的 pagetable 地址值
     } else {
-      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
+      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)// 如果不存在的话 先分配新空间 再赋值给 pagetable
         return 0;
       memset(pagetable, 0, PGSIZE);
       *pte = PA2PTE(pagetable) | PTE_V;
@@ -111,9 +113,9 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
   return &pagetable[PX(0, va)];
 }
 
-// Look up a virtual address, return the physical address,
-// or 0 if not mapped.
+// Look up a virtual address, return the physical address, or 0 if not mapped.
 // Can only be used to look up user pages.
+// !!!va is virtual address!!!
 uint64
 walkaddr(pagetable_t pagetable, uint64 va)
 {
@@ -369,12 +371,12 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
   uint64 n, va0, pa0;
 
   while(len > 0){
-    va0 = PGROUNDDOWN(dstva);
-    pa0 = walkaddr(pagetable, va0);
+    va0 = PGROUNDDOWN(dstva);// dstva = 20464
+    pa0 = walkaddr(pagetable, va0);// pa0 = 2280996864 va = 16384
     if(pa0 == 0)
       return -1;
-    n = PGSIZE - (dstva - va0);
-    if(n > len)
+    n = PGSIZE - (dstva - va0);    // n = 16
+    if(n > len)                    // len = 3  这 注意这是在 while 中的
       n = len;
     memmove((void *)(pa0 + (dstva - va0)), src, n);
 
@@ -452,3 +454,77 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+
+/**
+ * print the first process's page table
+ * 
+ * page_table is a physical addresses
+ * 
+ * 
+ * page table 0x0000000087f6b000
+ * ..  0: pte 0x0000000021fd9c01 pa 0x0000000087f67000
+ * ..    ..0: pte 0x0000000021fd9801 pa 0x0000000087f66000
+ * ..    .. ..0: pte 0x0000000021fda01b pa 0x0000000087f68000
+ * ..    .. ..1: pte 0x0000000021fd9417 pa 0x0000000087f65000
+ * ..    .. ..2: pte 0x0000000021fd9007 pa 0x0000000087f64000
+ * ..    .. ..3: pte 0x0000000021fd8c17 pa 0x0000000087f63000
+ * ..255: pte 0x0000000021fda801 pa 0x0000000087f6a000   // 这里第1级的 pte 完全可以使用相同的 物理地址
+ * ..  ..511: pte 0x0000000021fda401 pa 0x0000000087f69000
+ * ..   .. ..509: pte 0x0000000021fdcc13 pa 0x0000000087f73000
+ * ..   .. ..510: pte 0x0000000021fdd007 pa 0x0000000087f74000
+ * ..   .. ..511: pte 0x0000000020001c0b pa 0x0000000080007000
+ * 
+ * page_table --> satp register value
+ * 
+ * 打印的 pa 是页表的物理地址 共有3个页面 对应3个物理地址
+ * 
+ */
+void 
+vmprint(pagetable_t pagetable)
+{
+  printf("page table %p\n", pagetable);
+  // 每个 page table 512个pte  pagetable_t 是一个uint64* 指针
+  pagetable_t pg2 = pagetable, pg1, pg0;
+  for (int L2 = 0; L2 < 512; L2++)
+  {
+    pte_t *pte2 = &pg2[L2];// there is not &pg2[L2 * 8]
+    if (*pte2 & PTE_V)
+    {
+      // printf("..%d: pte %p pa %p\n", L2, *pte2, pg2 + L2 );
+      printf("..%d: pte %p pa %p\n", L2, *pte2, PTE2PA(*pte2));
+      pg1 = (pagetable_t)PTE2PA(*pte2);
+      for (int L1 = 0; L1 < 512; L1++)
+      {
+        pte_t *pte1 = &pg1[L1];
+        if (*pte1 & PTE_V)
+        {
+          // printf(".. ..%d: pte %p pa %p\n", L1, *pte1, pg1 + L1);
+          printf(".. ..%d: pte %p pa %p\n", L1, *pte1, PTE2PA(*pte1) );
+          pg0 = (pagetable_t)PTE2PA(*pte1);
+          for (int L0 = 0; L0 < 512; L0++)
+          {
+            pte_t *pte0 = &pg0[L0];
+            if (*pte0 & PTE_V)
+              // printf(".. .. ..%d: pte %p pa %p\n", L0, *pte0, pg0 + L0);
+              printf(".. .. ..%d: pte %p pa %p\n", L0, *pte0, PTE2PA(*pte0));
+          }
+        }
+      }
+    }
+  }
+}
+
+// 跟实验讲义上 pa 地址没对上  pte地址对上了  应该是写的没错
+// page table 0x0000000087f6b000
+//  ..0: pte 0x0000000021fd9c01 pa 0x0000000087f67000
+//  .. ..0: pte 0x0000000021fd9801 pa 0x0000000087f66000
+//  .. .. ..0: pte 0x0000000021fda01b pa 0x0000000087f68000
+//  .. .. ..1: pte 0x0000000021fd9417 pa 0x0000000087f65000
+//  .. .. ..2: pte 0x0000000021fd9007 pa 0x0000000087f64000
+//  .. .. ..3: pte 0x0000000021fd8c17 pa 0x0000000087f63000
+//  ..255: pte 0x0000000021fda801 pa 0x0000000087f6a000
+//  .. ..511: pte 0x0000000021fda401 pa 0x0000000087f69000
+//  .. .. ..509: pte 0x0000000021fdcc13 pa 0x0000000087f73000
+//  .. .. ..510: pte 0x0000000021fdd007 pa 0x0000000087f74000
+//  .. .. ..511: pte 0x0000000020001c0b pa 0x0000000080007000

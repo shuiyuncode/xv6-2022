@@ -105,6 +105,8 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
 // Look up a virtual address, return the physical address,
 // or 0 if not mapped.
 // Can only be used to look up user pages.
+// 不能计算内核的物理地址 因为会PTE_U计算 所以 第一参数只能是 proc->pagetable 而不能用 kerel_pagetable 来计算
+// 这个函数的va是 4k 对齐的
 uint64
 walkaddr(pagetable_t pagetable, uint64 va)
 {

@@ -1,0 +1,3 @@
+1  Which registers contain arguments to functions? 
+   answer: a2 a1
+   For example, which register holds 13 in main's call to printf?

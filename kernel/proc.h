@@ -41,6 +41,8 @@ extern struct cpu cpus[NCPU];
 // return-to-user path via usertrapret() doesn't return through
 // the entire kernel call stack.
 struct trapframe {
+  //  在最开始还有5个数据，这些是内核事先存放在trapframe中的数据。
+  //  比如第一个数据保存了kernel page table地址，这将会是trap处理代码将要加载到SATP寄存器的数值。
   /*   0 */ uint64 kernel_satp;   // kernel page table
   /*   8 */ uint64 kernel_sp;     // top of process's kernel stack
   /*  16 */ uint64 kernel_trap;   // usertrap()
@@ -98,7 +100,7 @@ struct proc {
   // these are private to the process, so p->lock need not be held.
   uint64 kstack;               // Virtual address of kernel stack
   uint64 sz;                   // Size of process memory (bytes)
-  pagetable_t pagetable;       // User page table
+  pagetable_t pagetable;       // User page table, kernel page table is a glable var of kernel_pagetable
   struct trapframe *trapframe; // data page for trampoline.S
   struct context context;      // swtch() here to run process
   struct file *ofile[NOFILE];  // Open files

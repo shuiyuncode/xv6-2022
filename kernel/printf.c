@@ -115,6 +115,42 @@ printf(char *fmt, ...)
     release(&pr.lock);
 }
 
+// 参考 https://mit-public-courses-cn-translatio.gitbook.io/mit6-s081/lec05-calling-conventions-and-stack-frames-risc-v/5.5-stack
+// Your backtrace() will need a way to recognize that it has seen the last stack frame, 
+// and should stop. A useful fact is that the memory allocated for each kernel stack consists 
+// of a single page-aligned page, so that all the stack frames for a given stack are on the same page.
+// You can use PGROUNDDOWN(fp) (see kernel/riscv.h) to identify the page that a frame pointer
+// refers to.
+void 
+backtrace(void)
+{
+
+  uint64 fp = r_fp(); // 注意这里得到的是r_fp函数的 fp
+
+  printf("fp = %p\n",fp);   // fp is va
+
+  struct proc* p = myproc();
+  // printf("kernel stack = %p\n",p->kstack);   // fp is va
+
+  // extern pagetable_t kernel_pagetable;
+  // pte_t* pte = walk(kernel_pagetable, fp, 0);
+  // uint64 pa = PTE2PA(*pte) + OFFSET(fp);
+  // printf("pa=%p\n",pa);   // fp is va
+
+  uint64 stack = p->kstack;    // 为什么不用kstack 来处理边界
+     printf("stack = %p\n",stack);   // fp is va
+
+  uint64 boundary = PGROUNDDOWN(fp);  // 因为用的是 PGROUNDDOWN 所以要用物理地址作为参数
+  if (fp <= boundary)
+  {
+    // uint64 ret_addr = fp - 8;
+    // // walkaddr(p->pagetable, )
+    // printf("-------%p\n", ret_addr);
+    // fp = (uint64)(*(uint64*) (fp -16));
+  }
+}
+
+
 void
 panic(char *s)
 {
@@ -122,6 +158,9 @@ panic(char *s)
   printf("panic: ");
   printf(s);
   printf("\n");
+
+  backtrace(); // print call stack
+
   panicked = 1; // freeze uart output from other CPUs
   for(;;)
     ;

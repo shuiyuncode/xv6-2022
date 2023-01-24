@@ -1,5 +1,14 @@
 #ifndef __ASSEMBLER__
 
+// read the current frame pointer. r_fp() uses in-line assembly to read s0
+static inline uint64
+r_fp()
+{
+  uint64 x;
+  asm volatile("mv %0, s0" : "=r" (x) );  // same === asm volatile("mv %0, fp" : "=r" (x) );
+  return x;
+}
+
 // which hart (core) is this?
 static inline uint64
 r_mhartid()
@@ -348,6 +357,7 @@ typedef uint64 *pagetable_t; // 512 PTEs
 #define PA2PTE(pa) ((((uint64)pa) >> 12) << 10)
 
 #define PTE2PA(pte) (((pte) >> 10) << 12)
+#define OFFSET(va) ((va) & (1 << 11))
 
 #define PTE_FLAGS(pte) ((pte) & 0x3FF)
 
